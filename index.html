@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学シミュレーション教材一覧</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        p.subtitle {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        /* グリッドレイアウト */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        /* カードのデザイン */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            overflow: hidden;
+            text-decoration: none; /* リンクの下線を消す */
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #eee;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            border-color: #007bff;
+        }
+
+        .card-header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        /* 分野ごとに色を変えたい場合用のクラス */
+        .card-header.prob { background-color: #3498db; } /* 確率 */
+        .card-header.stat { background-color: #2ecc71; } /* 統計 */
+        .card-header.func { background-color: #e67e22; } 
+
+        .card-header.gray { background-color: #7f8c8d; }
+/* 関数 */
+
+        .card-body {
+            padding: 20px;
+            flex-grow: 1;
+        }
+
+        .card-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: block;
+            font-size: 1.1rem;
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .card-footer {
+            padding: 15px;
+            background-color: #f9f9f9;
+            text-align: right;
+            font-size: 0.9rem;
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>数学シミュレーション教材</h1>
+        <p class="subtitle">高等学校数学科</p>
+    </header>
+
+    <div class="grid-container">
+
+        <a href="01_tamadashi.html" class="card">
+            <div class="card-header prob">確率分布</div>
+            <div class="card-body">
+                <span class="card-title">白玉2個，赤玉3個のシミュレーション</span>
+                <p class="card-desc">
+                    白玉2個，赤玉3個の入った袋から3個取り出す試行。<br>
+                    確率変数の値と，試行ごとの分布の変化を可視化します。
+                </p>
+            </div>
+            <div class="card-footer">
+                開く &rarr;
+            </div>
+        </a>
+
+        <a href="05_binomial.html" class="card">
+            <div class="card-header prob">二項分布</div>
+            <div class="card-body">
+                <span class="card-title">くじ引き10回シミュレーション</span>
+                <p class="card-desc">
+                    当たり確率を設定して，1回ずつくじを引きます。<br>
+                    10回の結果が並び，当たり・はずれの回数を集計します。
+                </p>
+            </div>
+            <div class="card-footer">
+                開く &rarr;
+            </div>
+        </a>
+        
+        <a href="09_sampling.html" class="card">
+            <div class="card-header stat">統計的推測</div>
+            <div class="card-body">
+                <span class="card-title">母平均を当てるゲーム</span>
+                <p class="card-desc">
+                    母集団から標本を何度も取り，標本平均の動きを見ながら母平均を推測します。<br>
+                    「標本→標本平均→推測」の流れを体験できます。
+                </p>
+            </div>
+            <div class="card-footer">
+                開く &rarr;
+            </div>
+        </a>
+
+        <a href="101_ratio_inference.html" class="card">
+            <div class="card-header stat">統計的推測</div>
+            <div class="card-body">
+                <span class="card-title">箱の中身推測ゲーム</span>
+                <p class="card-desc">
+                    袋から玉を取り出して元に戻す試行を繰り返し，赤白の割合（母比率）を推測します。<br>
+                    試行回数が増えるにつれて標本比率がどのように落ち着くかを確かめられます。
+                </p>
+            </div>
+            <div class="card-footer">
+                開く &rarr;
+            </div>
+        </a>
+
+
+
+
+        <a href="11_interval_sample.html" class="card">
+            <div class="card-header stat">統計的推測</div>
+            <div class="card-body">
+                <span class="card-title">母平均の区間推定</span>
+                <p class="card-desc">
+                    標本を何度も取り，標本平均から母平均の信頼区間を作ります。<br>
+                    信頼度を変えつつ，20本の区間が母平均をどれくらい含むかを可視化して確かめます。
+                </p>
+            </div>
+            <div class="card-footer">
+                開く &rarr;
+            </div>
+        </a>
+
+<a href="13_janken_simulate.html" class="card">
+            <div class="card-header func">仮説検定</div>
+            <div class="card-body">
+                <span class="card-title">じゃんけんシミュレーション</span>
+                <p class="card-desc">
+                    1回・10回・50回の試行で，勝ち/負けを繰り返します。<br>
+                    戦績と勝率に加え，正規分布曲線上で現在位置（Z値）を可視化します。
+                </p>
+            </div>
+            <div class="card-footer">
+                開く &rarr;
+            </div>
+        </a>
+
+                
+        <a href="21_clt_sampling_means.html" class="card">
+            <div class="card-header gray">統計学</div>
+            <div class="card-body">
+                <span class="card-title">中心極限定理</span>
+                <p class="card-desc">
+                    母集団の形を変えつつ，標本平均の分布が正規分布に近づく様子を確かめます。<br>
+                    標本サイズ n を切り替え，標本平均（ドット）に正規曲線を重ねて表示します。
+                </p>
+            </div>
+            <div class="card-footer">
+                開く &rarr;
+            </div>
+        </a>
+        
+    </div>
+</div>
+
+</body>
+</html>
