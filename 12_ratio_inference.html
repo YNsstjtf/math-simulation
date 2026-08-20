@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>信頼区間シミュレーション（母比率：赤玉/白玉）</title>
+  <style>
+    /* 既存（母平均版）に合わせた変数・余白・カード */
+    :root{--bg:#f0f2f5;--card:#fff;--text:#333;--muted:#666;--border:#eee;--shadow:0 4px 6px rgba(0,0,0,.10);--primary:#007bff;--primaryH:#0056b3;--secondary:#6c757d;--secondaryH:#5a6268;--radius:12px;}
+    body{font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px;display:flex;justify-content:center;min-height:100vh;}
+    .container{width:100%;max-width:1200px;display:flex;flex-direction:column;gap:16px;}
+    header,.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px;}
+    h1{margin:0;font-size:1.35rem;color:#444;border-bottom:2px solid var(--border);padding-bottom:10px;}
+    .subtitle{margin:10px 0 0;color:var(--muted);font-size:.95rem;line-height:1.6;}
+    h2{margin:0 0 10px 0;color:#444;border-bottom:2px solid var(--border);padding-bottom:8px;font-size:1.05rem;}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+    label{display:inline-flex;gap:8px;align-items:center;font-size:.95rem;color:#444;}
+    select{padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:.95rem;background:#fff;}
+    .btns{display:flex;gap:10px;width:100%;margin-top:10px;flex-wrap:wrap;}
+    button{border:none;padding:12px 16px;font-size:1rem;border-radius:6px;cursor:pointer;transition:background-color .2s;font-weight:bold;flex:1 1 180px;}
+    .p{background:var(--primary);color:#fff;}
+    .p:hover{background:var(--primaryH);}
+    .s{background:var(--secondary);color:#fff;}
+    .s:hover{background:var(--secondaryH);}
+    .pill{display:inline-block;padding:4px 10px;border:1px solid #aaa;border-radius:999px;background:#fff;font-size:.95rem;color:#444;}
+    .mono{font-variant-numeric:tabular-nums;}
+    .kpi{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+    .note{margin-top:10px;font-size:.85rem;color:var(--muted);line-height:1.6;}
+
+    svg{width:100%;height:420px;border-radius:10px;background:#fff;border:1px solid #ccc;}
+    .svgSmall{height:240px;}
+
+    /* ===== 直近標本：左=赤、右=白／1行の個数固定／縦スクロール ===== */
+    .sampleBox{margin-top:12px;}
+    .sampleLegend{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 10px;}
+    .legendItem{display:inline-flex;gap:8px;align-items:center;font-size:.95rem;color:#444;}
+    .dotLegend{
+      width:16px;height:16px;border-radius:50%;
+      display:inline-block;border:1px solid #ccc;background:#fff;
+    }
+    .dotLegend.red{ background:#c62828; border-color:#c62828; }
+    .dotLegend.white{ background:#fff; border-color:#999; }
+
+    .sampleSplitWrap{
+      border:1px solid #ccc;border-radius:10px;background:#fff;
+      padding:10px;
+    }
+    .sampleSplit{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      align-items:start;
+    }
+    .colHead{
+      font-weight:bold;
+      font-size:.95rem;
+      color:#444;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:6px;
+    }
+    .countPill{
+      margin-left:auto;
+      font-size:.85rem;
+      color:#444;
+      background:#fff;
+      border:1px solid #ddd;
+      padding:2px 8px;
+      border-radius:999px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ここで「1行当たりの丸数」を固定（10個/行） */
+    .ballGrid{
+      --perRow: 10;
+      display:grid;
+      grid-template-columns: repeat(var(--perRow), 18px);
+      gap:8px;
+      align-content:start;
+      padding-right:2px; /* スクロールバー対策 */
+    }
+
+/* grid内で文章が縦に崩れぬよう、全列をまたがせる */
+.ballGrid .placeholder{
+  grid-column: 1 / -1;      /* 端から端まで */
+  width: 100%;
+  white-space: normal;      /* 普通の折り返し */
+  line-height: 1.4;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+    /* 幅を取らないため、高さを固定して縦スクロール */
+    .ballScroll{
+      max-height: 92px;     /* ここを変えると見える段数が変わる */
+      overflow-y: auto;
+      border:1px solid #eee;
+      border-radius:10px;
+      padding:8px;
+      background:#fff;
+    }
+
+    .ball{
+      width:18px;height:18px;border-radius:50%;
+      border:1px solid #999;
+      background:#fff;
+      box-shadow: 0 1px 1px rgba(0,0,0,.08);
+    }
+    .ball.red{ background:#c62828; border-color:#c62828; }
+
+    .dangerTxt{color:#c62828;font-weight:bold;}
+    @media (max-width: 720px){
+      .sampleSplit{ grid-template-columns: 1fr; }
+    }
+    @media (max-width:980px){svg{height:380px;}}
+  </style>
+</head>
+
+<body>
+<div class="container">
+  <header>
+    <h1>信頼区間シミュレーション（赤玉/白玉）</h1>
+    <p class="subtitle">
+      赤玉と白玉がたくさん入った袋がある。袋の中の <b class="mono">赤玉の割合 p</b> は分からない。
+      そこで、袋から <b class="mono">n</b> 個取り出す（戻してから次の試行）ことを繰り返し、
+      標本比率 p̂ から母比率 p の信頼区間を作る（Wald近似）。
+      外れ（母比率を含まない）区間は赤で示す。
+      <br>
+    </p>
+  </header>
+
+  <section class="card">
+    <h2>操作</h2>
+    <div class="row">
+      <label>標本サイズ n：
+        <select id="nSelect">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="30">30</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </label>
+
+      <label>信頼度：
+        <select id="confSelect">
+          <option value="0.90">90%</option>
+          <option value="0.95" selected>95%</option>
+          <option value="0.99">99%</option>
+        </select>
+      </label>
+
+      <label class="pill">
+        <input id="showTruth" type="checkbox" style="transform:translateY(1px);" />
+        母比率を表示
+      </label>
+
+      <span class="pill">表示本数：<b id="kNow" class="mono">0</b> / 20</span>
+    </div>
+
+    <div class="btns">
+      <button id="gen1Btn" class="p">1回抽出</button>
+      <button id="gen10Btn" class="p">10回抽出</button>
+      <button id="gen50Btn" class="p">50回抽出</button>
+      <button id="gen200Btn" class="p">200回抽出</button>
+      <button id="resetBtn" class="s">リセット</button>
+    </div>
+
+    <div class="kpi">
+      <span class="pill">母比率（真の比率）：<b id="pTrue" class="mono">—</b></span>
+      <span class="pill">直近の標本比率 p̂：<b id="phat" class="mono">—</b></span>
+      <span class="pill">直近の区間幅：<b id="wLast" class="mono">—</b></span>
+      <span class="pill">含んだ本数：<b id="cover" class="mono">—</b> / 20</span>
+      <span class="pill">平均区間幅：<b id="wAvg" class="mono">—</b></span>
+      <span class="pill">条件 n·p̂：<b id="cond1" class="mono">—</b></span>
+      <span class="pill">条件 n·(1−p̂)：<b id="cond2" class="mono">—</b></span>
+      <span class="pill">判定：<b id="condJudge" class="mono">—</b></span>
+    </div>
+
+    <div class="sampleBox">
+      <h2 style="margin-top:14px;">直近の標本（赤と白を分けて表示）</h2>
+
+      <div class="sampleLegend">
+        <span class="legendItem"><span class="dotLegend red"></span>赤玉</span>
+        <span class="legendItem"><span class="dotLegend white"></span>白玉</span>
+        <span class="muted">※1行あたり10個。多いときは縦にスクロール。</span>
+      </div>
+
+      <div class="sampleSplitWrap">
+        <div class="sampleSplit">
+          <!-- 左：赤 -->
+          <div>
+            <div class="colHead">
+              <span class="dotLegend red"></span>赤玉
+              <span class="countPill">個数: <b id="redCount" class="mono">—</b></span>
+            </div>
+            <div class="ballScroll" aria-label="red balls scroll">
+              <div id="redGrid" class="ballGrid" style="--perRow:10;">
+                <span class="muted">まだ抽出されていないでござる。</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右：白 -->
+          <div>
+            <div class="colHead">
+              <span class="dotLegend white"></span>白玉
+              <span class="countPill">個数: <b id="whiteCount" class="mono">—</b></span>
+            </div>
+            <div class="ballScroll" aria-label="white balls scroll">
+              <div id="whiteGrid" class="ballGrid" style="--perRow:10;">
+                <span class="muted">まだ抽出されていないでござる。</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="note">
+        直近の標本を「順番」ではなく「赤の個数・白の個数」として見やすくした表示でござる。
+      </p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>信頼区間プロット（直近20本）</h2>
+    <svg id="plotCI" viewBox="0 0 1100 420" aria-label="confidence interval plot"></svg>
+    <p class="note">
+      横棒＝信頼区間。黒点＝標本比率 p̂。<span class="dangerTxt">赤</span>＝外れ（母比率を含まない）。
+      赤い縦線＝母比率（表示ON時）。
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>標本比率 p̂ の分布（全試行）</h2>
+    <svg id="plotDots" class="svgSmall" viewBox="0 0 1100 240" aria-label="dot plot"></svg>
+    <p class="note">点＝各試行の p̂。外れ区間に対応する点は赤。</p>
+  </section>
+</div>
+
+<script>
+"use strict";
+
+/* ===== 固定：母比率（赤玉割合） ===== */
+const TRUE_P = 0.35;
+
+/* ===== 設定 ===== */
+const CFG_CI = { W:1100, H:420, pad:{l:40, r:20, t:20, b:35} };
+const CFG_DOT= { W:1100, H:240, pad:{l:40, r:20, t:18, b:28} };
+
+function zCritical(conf){
+  if(conf >= 0.99) return 2.576;
+  if(conf >= 0.95) return 1.960;
+  return 1.645;
+}
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+function clearSvg(svg){ svg.innerHTML = ""; }
+function xScale01(x, cfg){
+  const w = cfg.W - cfg.pad.l - cfg.pad.r;
+  return cfg.pad.l + x * w;
+}
+
+/* ===== DOM ===== */
+const nSelect    = document.getElementById("nSelect");
+const confSelect = document.getElementById("confSelect");
+const showTruth  = document.getElementById("showTruth");
+
+const gen1Btn    = document.getElementById("gen1Btn");
+const gen10Btn   = document.getElementById("gen10Btn");
+const gen50Btn   = document.getElementById("gen50Btn");
+const gen200Btn  = document.getElementById("gen200Btn");
+const resetBtn   = document.getElementById("resetBtn");
+
+const kNowEl   = document.getElementById("kNow");
+const pTrueEl  = document.getElementById("pTrue");
+const phatEl   = document.getElementById("phat");
+const wLastEl  = document.getElementById("wLast");
+const coverEl  = document.getElementById("cover");
+const wAvgEl   = document.getElementById("wAvg");
+const cond1El  = document.getElementById("cond1");
+const cond2El  = document.getElementById("cond2");
+const condJudgeEl = document.getElementById("condJudge");
+
+const redGrid   = document.getElementById("redGrid");
+const whiteGrid = document.getElementById("whiteGrid");
+const redCountEl = document.getElementById("redCount");
+const whiteCountEl = document.getElementById("whiteCount");
+
+const svgCI  = document.getElementById("plotCI");
+const svgDot = document.getElementById("plotDots");
+
+/* ===== データ ===== */
+let cis = []; // {lo, hi, mean, covers, phat, x, n, bits}
+
+/* ===== 抽出（復元：各試行は独立） ===== */
+function sampleBits(n, p){
+  const bits = new Array(n);
+  let x = 0;
+  for(let i=0;i<n;i++){
+    const b = (Math.random() < p) ? 1 : 0;
+    bits[i] = b;
+    x += b;
+  }
+  return {x, bits};
+}
+
+/* Wald CI */
+function makeOneCI(){
+  const n = parseInt(nSelect.value, 10);
+  const conf = parseFloat(confSelect.value);
+  const z = zCritical(conf);
+
+  const {x, bits} = sampleBits(n, TRUE_P);
+  const phat = x / n;
+
+  const se = Math.sqrt(phat*(1-phat)/n);
+  let lo = clamp01(phat - z*se);
+  let hi = clamp01(phat + z*se);
+
+  const covers = (lo <= TRUE_P && TRUE_P <= hi);
+  return {lo, hi, mean:phat, covers, phat, x, n, bits, z, conf};
+}
+
+/* ===== 直近標本：左赤／右白（1行の個数固定・縦スクロール） ===== */
+function renderLastSampleSplit(last){
+  if(!last){
+redGrid.innerHTML = '<div class="placeholder">まだ生成されていないでござる。</div>';
+whiteGrid.innerHTML = '<div class="placeholder">まだ生成されていないでござる。</div>';
+
+    redCountEl.textContent = "—";
+    whiteCountEl.textContent = "—";
+    return;
+  }
+
+  const x = last.x;
+  const n = last.n;
+  const w = n - x;
+
+  redCountEl.textContent = String(x);
+  whiteCountEl.textContent = String(w);
+
+  // 赤玉x個、白玉(n-x)個を抽出（順番は持たせない）
+  redGrid.innerHTML = (x === 0)
+    ? '<span class="muted">赤玉なし</span>'
+    : new Array(x).fill(0).map(()=>'<span class="ball red" aria-label="red"></span>').join("");
+
+  whiteGrid.innerHTML = (w === 0)
+    ? '<span class="muted">白玉なし</span>'
+    : new Array(w).fill(0).map(()=>'<span class="ball" aria-label="white"></span>').join("");
+}
+
+/* ===== KPI更新 ===== */
+function updateKPIs(recent){
+  pTrueEl.textContent = showTruth.checked ? TRUE_P.toFixed(2) : "—";
+
+  if(recent.length === 0){
+    phatEl.textContent = "—";
+    wLastEl.textContent = "—";
+    coverEl.textContent = "—";
+    wAvgEl.textContent = "—";
+    cond1El.textContent = "—";
+    cond2El.textContent = "—";
+    condJudgeEl.textContent = "—";
+    renderLastSampleSplit(null);
+    return;
+  }
+
+  const last = recent[recent.length-1];
+
+  phatEl.textContent = last.phat.toFixed(3);
+  wLastEl.textContent = (last.hi - last.lo).toFixed(3);
+
+  const cover = recent.reduce((a,c)=>a+(c.covers?1:0),0);
+  coverEl.textContent = String(cover);
+
+  const wAvg = recent.reduce((a,c)=>a+(c.hi-c.lo),0) / recent.length;
+  wAvgEl.textContent = wAvg.toFixed(3);
+
+  const c1 = last.n * last.phat;
+  const c2 = last.n * (1 - last.phat);
+  cond1El.textContent = c1.toFixed(1);
+  cond2El.textContent = c2.toFixed(1);
+  const ok = (c1 >= 5 && c2 >= 5);
+  condJudgeEl.textContent = ok ? "OK（目安クリア）" : "注意（近似が荒れやすい）";
+
+  renderLastSampleSplit(last);
+}
+
+/* ===== 軸（0.0〜1.0） ===== */
+function drawAxis01(svg, cfg, yAxis){
+  const ns = "http://www.w3.org/2000/svg";
+
+  const axis = document.createElementNS(ns,"line");
+  axis.setAttribute("x1", cfg.pad.l);
+  axis.setAttribute("x2", cfg.W - cfg.pad.r);
+  axis.setAttribute("y1", yAxis);
+  axis.setAttribute("y2", yAxis);
+  axis.setAttribute("stroke", "#333");
+  svg.appendChild(axis);
+
+  for(let i=0;i<=10;i++){
+    const v = i/10;
+    const x = xScale01(v, cfg);
+
+    const tick = document.createElementNS(ns,"line");
+    tick.setAttribute("x1", x); tick.setAttribute("x2", x);
+    tick.setAttribute("y1", yAxis); tick.setAttribute("y2", yAxis+6);
+    tick.setAttribute("stroke", "#333");
+    svg.appendChild(tick);
+
+    const t = document.createElementNS(ns,"text");
+    t.setAttribute("x", x);
+    t.setAttribute("y", cfg.H-10);
+    t.setAttribute("text-anchor", "middle");
+    t.setAttribute("font-size", "12");
+    t.textContent = v.toFixed(1);
+    svg.appendChild(t);
+  }
+}
+
+/* ===== CIプロット（直近20本） ===== */
+function drawCIPlot(){
+  clearSvg(svgCI);
+  const ns = "http://www.w3.org/2000/svg";
+
+  const recent = cis.slice(-20);
+  kNowEl.textContent = String(recent.length);
+
+  const yAxis = CFG_CI.H - CFG_CI.pad.b;
+  drawAxis01(svgCI, CFG_CI, yAxis);
+
+  // 真値線（表示ONのみ）
+  if(showTruth.checked){
+    const xT = xScale01(TRUE_P, CFG_CI);
+    const vline = document.createElementNS(ns,"line");
+    vline.setAttribute("x1", xT); vline.setAttribute("x2", xT);
+    vline.setAttribute("y1", CFG_CI.pad.t);
+    vline.setAttribute("y2", CFG_CI.H - CFG_CI.pad.b);
+    vline.setAttribute("stroke", "red");
+    vline.setAttribute("stroke-width", "2");
+    svgCI.appendChild(vline);
+  }
+
+  const rowH = 17;
+  const y0 = CFG_CI.pad.t + 18;
+
+  recent.forEach((ci, i) => {
+    const y = y0 + i*rowH;
+    const x1 = xScale01(ci.lo, CFG_CI);
+    const x2 = xScale01(ci.hi, CFG_CI);
+    const xm = xScale01(ci.mean, CFG_CI);
+
+    const col = ci.covers ? "#000" : "#d33";
+    const sw  = ci.covers ? "2" : "3";
+
+    const seg = document.createElementNS(ns,"line");
+    seg.setAttribute("x1", x1); seg.setAttribute("x2", x2);
+    seg.setAttribute("y1", y);  seg.setAttribute("y2", y);
+    seg.setAttribute("stroke", col);
+    seg.setAttribute("stroke-width", sw);
+    svgCI.appendChild(seg);
+
+    const capL = document.createElementNS(ns,"line");
+    capL.setAttribute("x1", x1); capL.setAttribute("x2", x1);
+    capL.setAttribute("y1", y-5); capL.setAttribute("y2", y+5);
+    capL.setAttribute("stroke", col);
+    capL.setAttribute("stroke-width", sw);
+    svgCI.appendChild(capL);
+
+    const capR = document.createElementNS(ns,"line");
+    capR.setAttribute("x1", x2); capR.setAttribute("x2", x2);
+    capR.setAttribute("y1", y-5); capR.setAttribute("y2", y+5);
+    capR.setAttribute("stroke", col);
+    capR.setAttribute("stroke-width", sw);
+    svgCI.appendChild(capR);
+
+    const dot = document.createElementNS(ns,"circle");
+    dot.setAttribute("cx", xm);
+    dot.setAttribute("cy", y);
+    dot.setAttribute("r", "4");
+    dot.setAttribute("fill", col);
+    svgCI.appendChild(dot);
+  });
+
+  updateKPIs(recent);
+}
+
+/* ===== p̂ドット（全試行） ===== */
+function drawDotPlot(){
+  clearSvg(svgDot);
+  const ns = "http://www.w3.org/2000/svg";
+
+  const yAxis = CFG_DOT.H - CFG_DOT.pad.b;
+  drawAxis01(svgDot, CFG_DOT, yAxis);
+
+  if(showTruth.checked){
+    const xT = xScale01(TRUE_P, CFG_DOT);
+    const vline = document.createElementNS(ns,"line");
+    vline.setAttribute("x1", xT); vline.setAttribute("x2", xT);
+    vline.setAttribute("y1", CFG_DOT.pad.t);
+    vline.setAttribute("y2", CFG_DOT.H - CFG_DOT.pad.b);
+    vline.setAttribute("stroke", "red");
+    vline.setAttribute("stroke-width", "2");
+    svgDot.appendChild(vline);
+  }
+
+  const bucketStep = 0.01;
+  const bucketCounts = new Map();
+  const baseY = CFG_DOT.H - CFG_DOT.pad.b;
+
+  for(const ci of cis){
+    const b = Math.round(ci.phat / bucketStep) * bucketStep;
+    const key = b.toFixed(2);
+    const c = (bucketCounts.get(key) || 0) + 1;
+    bucketCounts.set(key, c);
+
+    const x = xScale01(Math.max(0, Math.min(1, b)), CFG_DOT);
+    const y = baseY - c*7;
+    if(y < CFG_DOT.pad.t+4) continue;
+
+    const col = ci.covers ? "#000" : "#d33";
+    const dot = document.createElementNS(ns,"circle");
+    dot.setAttribute("cx", x);
+    dot.setAttribute("cy", y);
+    dot.setAttribute("r", "3.2");
+    dot.setAttribute("fill", col);
+    svgDot.appendChild(dot);
+  }
+}
+
+function drawAll(){
+  drawCIPlot();
+  drawDotPlot();
+}
+
+/* ===== 操作 ===== */
+function addK(k){
+  for(let i=0;i<k;i++){
+    cis.push(makeOneCI());
+  }
+  drawAll();
+}
+function resetAll(){
+  cis = [];
+  showTruth.checked = false; // 最初は隠す
+  drawAll();
+}
+
+gen1Btn.addEventListener("click", ()=>addK(1));
+gen10Btn.addEventListener("click", ()=>addK(10));
+gen50Btn.addEventListener("click", ()=>addK(50));
+gen200Btn.addEventListener("click", ()=>addK(200));
+resetBtn.addEventListener("click", resetAll);
+
+nSelect.addEventListener("change", drawAll);
+confSelect.addEventListener("change", drawAll);
+showTruth.addEventListener("change", drawAll);
+
+window.addEventListener("load", ()=>{ drawAll(); });
+</script>
+</body>
+</html>

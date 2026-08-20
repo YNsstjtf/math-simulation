@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>中心極限定理：標本平均の分布（正規曲線重ね描き）</title>
+  <style>
+    /* 21_clt_sampling_means.html を白基調に寄せた版 :contentReference[oaicite:1]{index=1} */
+    :root{
+      --bg:#f0f2f5;
+      --card:#ffffff;
+      --text:#333;
+      --muted:#666;
+      --border:#e6e8ee;
+      --shadow:0 4px 10px rgba(0,0,0,0.10);
+
+      --primary:#007bff;
+      --primary-hover:#0056b3;
+      --secondary:#6c757d;
+      --secondary-hover:#5a6268;
+
+      --popStroke:rgba(0,123,255,0.95);
+      --popFill:rgba(0,123,255,0.10);
+
+      --dot:rgba(0,0,0,0.85);
+
+      --normStroke:rgba(220,53,69,0.98);
+      --normFill:rgba(220,53,69,0.12);
+
+      --grid:rgba(0,0,0,0.06);
+    }
+
+    html, body{ background: var(--bg); }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      color: var(--text);
+    }
+
+    header{
+      max-width: 1200px;
+      margin: 18px auto 0;
+      padding: 16px 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+    header h1{
+      margin:0;
+      font-size: 18px;
+      font-weight: 800;
+      color:#444;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border);
+    }
+    header p{
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .wrap{
+      max-width: 1200px;
+      margin: 14px auto 24px;
+      padding: 0 12px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .card .hd .title{ font-weight: 800; font-size: 14px; color:#444; }
+    .card .hd .sub{ font-size: 12px; color: var(--muted); }
+    .card .bd{ padding: 14px; }
+
+    label{
+      display:block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    select, input[type="range"]{
+      width:100%;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid #cfd6e4;
+      background: #fff;
+      color: var(--text);
+      outline:none;
+      font-size: 13px;
+    }
+    input[type="range"]{ padding: 0; height: 34px; }
+
+    .row{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items:center;
+      margin-top: 10px;
+    }
+    .pill{
+      display:inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background:#fff;
+      border: 1px solid #cfd6e4;
+      color:#444;
+      font-size: 12px;
+    }
+    .mono{ font-variant-numeric: tabular-nums; }
+
+    .btns{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    button{
+      cursor:pointer;
+      border: none;
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      transition: background-color .15s ease, transform .05s ease;
+      flex: 1 1 120px;
+    }
+    button:active{ transform: translateY(1px); }
+    .primary{ background: var(--primary); color: #fff; }
+    .primary:hover{ background: var(--primary-hover); }
+    .secondary{ background: var(--secondary); color: #fff; }
+    .secondary:hover{ background: var(--secondary-hover); }
+
+    .legend{
+      display:flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      align-items:center;
+    }
+    .key{ display:flex; align-items:center; gap: 6px; }
+    .swatch{
+      width: 16px; height: 10px; border-radius: 3px;
+      border: 1px solid rgba(0,0,0,0.18);
+    }
+
+    .statline{
+      margin-top: 12px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      background: #f7f9fc;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .statline b{ color: var(--text); }
+
+    canvas{
+      width: 100%;
+      height: 380px;
+      display:block;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #cfd6e4;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>中心極限定理：標本平均の分布（正規曲線を重ねる）</h1>
+  <p>
+    左：母集団の形（密度）／ 右：標本平均のドットプロット。<br/>
+    右には、標本平均データの <b>平均 m</b> と <b>標準偏差 s</b> に合わせた <b>正規分布曲線</b> を重ねてある（比較用の目安）。
+  </p>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+
+    <!-- Controls -->
+    <section class="card">
+      <div class="hd">
+        <div class="title">操作</div>
+        <div class="sub">母集団と n を切り替える</div>
+      </div>
+      <div class="bd">
+
+        <label>母集団の種類</label>
+        <select id="popSelect">
+          <option value="sym">単峰左右対称：ロジスティック（早い）</option>
+          <option value="uni">一様分布（そこそこ）</option>
+          <option value="bim">二峰（遅い）</option>
+          <option value="spk">スパイク（かなり遅い）</option>
+        </select>
+
+        <div class="row">
+          <span class="pill">標本サイズ n：<b id="nPill" class="mono">5</b></span>
+          <span class="pill">試行回数：<b class="mono">300</b>（固定）</span>
+        </div>
+
+        <div class="btns">
+          <button class="primary" data-n="1">n = 1</button>
+          <button class="primary" data-n="10">n = 10</button>
+          <button class="primary" data-n="30">n = 30</button>
+          <button class="primary" data-n="50">n = 50</button>
+          <button class="primary" data-n="100">n = 100</button>
+          <button class="primary" data-n="200">n = 200</button>
+          <button class="secondary" id="btnRedraw">同じ n で再計算</button>
+        </div>
+
+        <label style="margin-top:12px;">ドットの細かさ（ビン数） <span class="pill">現在：<b id="binLabel" class="mono">130</b></span></label>
+        <input id="binRange" type="range" min="70" max="220" value="130"/>
+
+        <div class="legend">
+          <div class="key"><span class="swatch" style="background: rgba(0,0,0,0.85)"></span>標本平均（ドット）</div>
+          <div class="key"><span class="swatch" style="background: rgba(220,53,69,0.18); border-color: rgba(220,53,69,0.55)"></span>正規曲線（重ね描き）</div>
+          <div class="key"><span class="swatch" style="background: rgba(0,123,255,0.12); border-color: rgba(0,123,255,0.55)"></span>母集団の形（左）</div>
+        </div>
+
+        <div class="statline" id="stats"></div>
+      </div>
+    </section>
+
+    <!-- Charts -->
+    <section class="card">
+      <div class="hd">
+        <div class="title">図</div>
+        <div class="sub">左：母集団の密度　右：標本平均＋正規曲線</div>
+      </div>
+      <div class="bd">
+        <canvas id="cv" width="980" height="380"></canvas>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ===========================
+   乱数
+=========================== */
+function randU(){ return Math.random(); }
+function randN(mu=0, sigma=1){
+  let u=0, v=0;
+  while(u===0) u = randU();
+  while(v===0) v = randU();
+  const z = Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  return mu + sigma*z;
+}
+function randLogistic(mu=0, s=1){
+  let u = randU();
+  u = Math.min(1-1e-12, Math.max(1e-12, u));
+  return mu + s * Math.log(u/(1-u));
+}
+function sampleDiscrete(values, weights){
+  const total = weights.reduce((a,b)=>a+b,0);
+  let r = randU()*total;
+  for(let i=0;i<values.length;i++){
+    r -= weights[i];
+    if(r<=0) return values[i];
+  }
+  return values[values.length-1];
+}
+function normalPdf(x, mu, sigma){
+  const z = (x-mu)/sigma;
+  return Math.exp(-0.5*z*z)/(sigma*Math.sqrt(2*Math.PI));
+}
+
+/* ===========================
+   母集団（“速さの差”が出る設定）
+=========================== */
+const populations = {
+  sym: {
+    name: "ロジスティック（単峰・左右対称）",
+    xMin: -6, xMax: 6,
+    sampler: ()=> randLogistic(0, 1.15),
+    density: (x)=>{
+      const m=0, s=1.15;
+      const z=(x-m)/s;
+      const e=Math.exp(-z);
+      return e/(s*Math.pow(1+e,2));
+    }
+  },
+  uni: {
+    name: "一様分布（-5〜5）",
+    xMin: -5, xMax: 5,
+    sampler: ()=> -5 + 10*randU(),
+    density: (x)=> (x>=-5 && x<=5) ? 0.1 : 0
+  },
+  bim: {
+    name: "二峰（正規2峰の混合）",
+    xMin: -9, xMax: 9,
+    sampler: ()=> (randU()<0.5 ? randN(-3.2, 0.9) : randN(3.2, 1.1)),
+    density: (x)=> 0.5*normalPdf(x,-3.2,0.9) + 0.5*normalPdf(x,3.2,1.1)
+  },
+spk: {
+  name: "スパイク（とびとび・大間隔）",
+  xMin: -14, xMax: 14,
+  sampler: ()=>{
+    const vals = [-12, -6, 0, 6, 12];
+    const w    = [ 2,  2, 1, 2,  2];
+    const v = sampleDiscrete(vals, w);
+    return v + randN(0, 0.05); // ジッター小さめ（とびとび感を残す）
+  },
+  density: (x)=>{
+    const centers = [-12, -6, 0, 6, 12];
+    const w = [2,2,1,2,2];
+    let s=0;
+    for(let i=0;i<centers.length;i++){
+      s += w[i]*normalPdf(x, centers[i], 0.25); // 細い山（見た目のため）
+    }
+    return s;
+  }
+}
+};
+
+/* ===========================
+   シミュレーション
+=========================== */
+const REPS = 300; // 固定
+
+function simulateSampleMeans(popKey, n){
+  const pop = populations[popKey];
+  const means = new Array(REPS);
+  for(let r=0;r<REPS;r++){
+    let sum=0;
+    for(let i=0;i<n;i++) sum += pop.sampler();
+    means[r] = sum/n;
+  }
+  return means;
+}
+function mean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function sd(arr){
+  const m = mean(arr);
+  const v = arr.reduce((a,b)=>a+(b-m)*(b-m),0)/(arr.length-1);
+  return Math.sqrt(v);
+}
+
+/* ===========================
+   描画（canvas）
+=========================== */
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+
+function cssVar(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+function resizeCanvasToCSS(){
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = cv.clientWidth;
+  const cssH = cv.clientHeight;
+  cv.width = Math.round(cssW * dpr);
+  cv.height = Math.round(cssH * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function clear(){
+  ctx.clearRect(0,0,cv.clientWidth, cv.clientHeight);
+}
+function mapX(x, xMin, xMax, x0, w){
+  return x0 + (x - xMin) / (xMax - xMin) * w;
+}
+function drawAxes(x0,y0,w,h){
+  ctx.strokeStyle = "rgba(0,0,0,0.14)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x0,y0,w,h);
+
+  ctx.strokeStyle = cssVar("--grid");
+  for(let i=1;i<=4;i++){
+    const gx = x0 + (w*i/5);
+    ctx.beginPath(); ctx.moveTo(gx,y0); ctx.lineTo(gx,y0+h); ctx.stroke();
+  }
+  for(let j=1;j<=3;j++){
+    const gy = y0 + (h*j/4);
+    ctx.beginPath(); ctx.moveTo(x0,gy); ctx.lineTo(x0+w,gy); ctx.stroke();
+  }
+}
+
+function drawDensity(popKey, x0,y0,w,h){
+  const pop = populations[popKey];
+
+  // max density for scaling
+  let maxD = 0;
+  const N = 360;
+  for(let i=0;i<=N;i++){
+    const x = pop.xMin + (pop.xMax-pop.xMin)*i/N;
+    maxD = Math.max(maxD, pop.density(x));
+  }
+  if(maxD<=0) maxD = 1;
+
+  // fill
+  ctx.beginPath();
+  for(let i=0;i<=N;i++){
+    const x = pop.xMin + (pop.xMax-pop.xMin)*i/N;
+    const d = pop.density(x);
+    const px = mapX(x, pop.xMin, pop.xMax, x0, w);
+    const py = y0 + h - (d/maxD)*h*0.92;
+    if(i===0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.lineTo(x0+w, y0+h);
+  ctx.lineTo(x0, y0+h);
+  ctx.closePath();
+  ctx.fillStyle = cssVar("--popFill");
+  ctx.fill();
+
+  // stroke
+  ctx.beginPath();
+  for(let i=0;i<=N;i++){
+    const x = pop.xMin + (pop.xMax-pop.xMin)*i/N;
+    const d = pop.density(x);
+    const px = mapX(x, pop.xMin, pop.xMax, x0, w);
+    const py = y0 + h - (d/maxD)*h*0.92;
+    if(i===0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = cssVar("--popStroke");
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+
+  // labels
+  ctx.fillStyle = "rgba(0,0,0,0.78)";
+  ctx.font = "800 13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  ctx.fillText("母集団の形（密度）", x0+10, y0+18);
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  ctx.fillText(pop.name, x0+10, y0+36);
+
+  // ticks
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.font = "11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  const ticks = 5;
+  for(let i=0;i<=ticks;i++){
+    const xv = pop.xMin + (pop.xMax-pop.xMin)*i/ticks;
+    const px = mapX(xv, pop.xMin, pop.xMax, x0, w);
+    ctx.fillText(xv.toFixed(1), px-10, y0+h+16);
+  }
+}
+
+function drawDotPlotWithNormal(means, x0,y0,w,h, binCount){
+  const m = mean(means);
+  const s = sd(means) || 1e-9;
+
+  // x-range: m ± 4s（狭すぎたら広げる）
+  let xMin = m - 4*s;
+  let xMax = m + 4*s;
+  if(xMax-xMin < 1e-6){
+    xMin = m - 1;
+    xMax = m + 1;
+  }
+
+  // binning
+  const bins = new Array(binCount).fill(0);
+  for(const v of means){
+    const t = (v - xMin) / (xMax - xMin);
+    const idx = Math.max(0, Math.min(binCount-1, Math.floor(t*binCount)));
+    bins[idx]++;
+  }
+  const maxStack = Math.max(...bins, 1);
+
+  // geometry
+  const topPad = 24;
+  const baseY = y0 + h - 10;
+  const usableH = h - topPad - 18;
+  const step = Math.min(usableH/(maxStack+1), 9.2);
+
+  // label
+  ctx.fillStyle = "rgba(0,0,0,0.78)";
+  ctx.font = "800 13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  ctx.fillText("標本平均（ドット）＋ 正規曲線", x0+10, y0+18);
+
+  // dots first
+  const r = 3.3;
+  ctx.fillStyle = cssVar("--dot");
+  for(let i=0;i<binCount;i++){
+    const c = bins[i];
+    if(c===0) continue;
+    const px = x0 + (i+0.5)/binCount * w;
+    for(let k=0;k<c;k++){
+      const py = baseY - (k+1)*step;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // ===== Normal curve overlay (必ず見える方式) =====
+  // pdf最大値を求め、曲線の高さを「最大積み上げ段数 * step」に合わせる
+  const N = 360;
+  let maxPdf = 0;
+  for(let j=0;j<=N;j++){
+    const x = xMin + (xMax - xMin) * j / N;
+    maxPdf = Math.max(maxPdf, normalPdf(x, m, s));
+  }
+  if(maxPdf <= 0) maxPdf = 1;
+
+  const curveH = maxStack * step; // ここが肝：必ずドットと同じ縦スケールになる
+  function curveY(pdf){
+    return baseY - (pdf/maxPdf) * curveH;
+  }
+
+  // fill under curve
+  ctx.beginPath();
+  for(let j=0;j<=N;j++){
+    const x = xMin + (xMax - xMin) * j / N;
+    const pdf = normalPdf(x, m, s);
+    const px = mapX(x, xMin, xMax, x0, w);
+    const py = curveY(pdf);
+    if(j===0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.lineTo(x0+w, baseY);
+  ctx.lineTo(x0, baseY);
+  ctx.closePath();
+  ctx.fillStyle = cssVar("--normFill");
+  ctx.fill();
+
+  // stroke curve on top (ドットの上に来る)
+  ctx.save();
+  ctx.strokeStyle = cssVar("--normStroke");
+  ctx.lineWidth = 3.0;
+  ctx.shadowColor = "rgba(0,0,0,0.10)";
+  ctx.shadowBlur = 2;
+  ctx.beginPath();
+  for(let j=0;j<=N;j++){
+    const x = xMin + (xMax - xMin) * j / N;
+    const pdf = normalPdf(x, m, s);
+    const px = mapX(x, xMin, xMax, x0, w);
+    const py = curveY(pdf);
+    if(j===0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // ticks
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.font = "11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  const ticks = 5;
+  for(let i=0;i<=ticks;i++){
+    const xv = xMin + (xMax-xMin)*i/ticks;
+    const px = mapX(xv, xMin, xMax, x0, w);
+    ctx.fillText(xv.toFixed(2), px-12, y0+h+16);
+  }
+
+  return {m, s};
+}
+
+/* ===========================
+   UI / 状態
+=========================== */
+const state = {
+  popKey: "sym",
+  n: 5,
+  binCount: 130
+};
+
+const popSelect = document.getElementById("popSelect");
+const nPill = document.getElementById("nPill");
+const statsBox = document.getElementById("stats");
+const binRange = document.getElementById("binRange");
+const binLabel = document.getElementById("binLabel");
+
+function redraw(){
+  resizeCanvasToCSS();
+  clear();
+
+  const W = cv.clientWidth;
+  const H = cv.clientHeight;
+
+  const leftW = Math.floor(W*0.44);
+  const gap = 14;
+  const rightW = W - leftW - gap;
+
+  const pad = 18;
+  const frameH = H - 42;
+
+  // frames
+  drawAxes(pad, pad, leftW - pad*1.2, frameH - pad*0.9);
+  drawAxes(leftW + gap + pad, pad, rightW - pad*1.2, frameH - pad*0.9);
+
+  // left density
+  drawDensity(state.popKey, pad, pad, leftW - pad*1.2, frameH - pad*0.9);
+
+  // right dotplot + normal
+  const means = simulateSampleMeans(state.popKey, state.n);
+  const info = drawDotPlotWithNormal(
+    means,
+    leftW + gap + pad, pad,
+    rightW - pad*1.2, frameH - pad*0.9,
+    state.binCount
+  );
+
+  const popName = populations[state.popKey].name;
+  statsBox.innerHTML =
+    `母集団：<b>${popName}</b><br/>` +
+    `n = <b>${state.n}</b> ／ 試行回数 = <b>${REPS}</b><br/>` +
+    `標本平均の平均 m ≈ <b>${info.m.toFixed(3)}</b> ，標本平均の標準偏差 s ≈ <b>${info.s.toFixed(3)}</b>`;
+}
+
+function setN(n){
+  state.n = n;
+  nPill.textContent = String(n);
+  redraw();
+}
+
+document.querySelectorAll('button[data-n]').forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    setN(parseInt(btn.getAttribute("data-n"), 10));
+  });
+});
+
+document.getElementById("btnRedraw").addEventListener("click", redraw);
+
+popSelect.addEventListener("change", ()=>{
+  state.popKey = popSelect.value;
+  redraw();
+});
+
+binRange.addEventListener("input", ()=>{
+  state.binCount = parseInt(binRange.value,10);
+  binLabel.textContent = String(state.binCount);
+  redraw();
+});
+
+window.addEventListener("resize", redraw);
+
+// init
+binLabel.textContent = String(state.binCount);
+setN(1);
+</script>
+</body>
+</html>

@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>信頼区間シミュレーション（ラーメン価格）</title>
+  <style>
+    :root{--bg:#f0f2f5;--card:#fff;--text:#333;--muted:#666;--border:#eee;--shadow:0 4px 6px rgba(0,0,0,.10);--primary:#007bff;--primaryH:#0056b3;--secondary:#6c757d;--secondaryH:#5a6268;--radius:12px;}
+    body{font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px;display:flex;justify-content:center;min-height:100vh;}
+    .container{width:100%;max-width:1200px;display:flex;flex-direction:column;gap:16px;}
+    header,.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px;}
+    h1{margin:0;font-size:1.35rem;color:#444;border-bottom:2px solid var(--border);padding-bottom:10px;}
+    .subtitle{margin:10px 0 0;color:var(--muted);font-size:.95rem;line-height:1.6;}
+    h2{margin:0 0 10px 0;color:#444;border-bottom:2px solid var(--border);padding-bottom:8px;font-size:1.05rem;}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+    label{display:inline-flex;gap:8px;align-items:center;font-size:.95rem;color:#444;}
+    select{padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:.95rem;background:#fff;}
+    .btns{display:flex;gap:10px;width:100%;margin-top:10px;flex-wrap:wrap;}
+    button{border:none;padding:12px 16px;font-size:1rem;border-radius:6px;cursor:pointer;transition:background-color .2s;font-weight:bold;flex:1 1 180px;}
+    .p{background:var(--primary);color:#fff;}
+    .p:hover{background:var(--primaryH);}
+    .s{background:var(--secondary);color:#fff;}
+    .s:hover{background:var(--secondaryH);}
+    .pill{display:inline-block;padding:4px 10px;border:1px solid #aaa;border-radius:999px;background:#fff;font-size:.95rem;color:#444;}
+    .mono{font-variant-numeric:tabular-nums;}
+    .kpi{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+    .note{margin-top:10px;font-size:.85rem;color:var(--muted);line-height:1.6;}
+    svg{width:100%;height:420px;border-radius:10px;background:#fff;border:1px solid #ccc;}
+    
+.sampleBox{margin-top:12px;}
+.tableWrap{max-height:220px;overflow:auto;border:1px solid #ccc;border-radius:10px;background:#fff;}
+table{border-collapse:collapse;width:100%;}
+th,td{border:1px solid #ddd;padding:6px 8px;font-size:.9rem;}
+th{background:#f7f7f7;position:sticky;top:0;z-index:1;}
+td.num{text-align:right;font-variant-numeric:tabular-nums;}
+    @media (max-width:980px){svg{height:380px;}}
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>信頼区間シミュレーション（区間推定）</h1>
+    <p class="subtitle">母集団（ラーメン価格リスト）から標本を取り、標本平均から母平均の信頼区間を作る。</p>
+  </header>
+
+  <section class="card">
+    <h2>操作</h2>
+    <div class="row">
+      <label>標本サイズ n：
+        <select id="nSelect">
+          <option value="5">5</option>
+          <option value="10">10</option>
+          <option value="30" selected>30</option>
+          <option value="50">50</option>
+        </select>
+      </label>
+      <label>信頼度：
+        <select id="confSelect">
+          <option value="0.90">90%</option>
+          <option value="0.95" selected>95%</option>
+          <option value="0.99">99%</option>
+        </select>
+      </label>
+      <span class="pill">表示本数：<b id="kNow" class="mono">0</b> / 20</span>
+    </div>
+
+    <div class="btns">
+      <button id="gen1Btn" class="p">1本生成</button>
+      <button id="gen20Btn" class="p">20本生成（更新）</button>
+      <button id="resetBtn" class="s">リセット</button>
+    </div>
+
+    <div class="kpi">
+<span class="pill">直近の標本平均：<b id="xbar" class="mono">—</b> 円</span>
+  <span class="pill">直近の区間幅：<b id="wLast" class="mono">—</b> 円</span>
+  <span class="pill">含んだ本数：<b id="cover" class="mono">—</b> / 20</span>
+  <span class="pill">平均区間幅：<b id="wAvg" class="mono">—</b> 円</span>
+  <span class="pill">直近の標本SD s：<b id="s" class="mono">—</b></span>
+  <span class="pill">標準誤差 s/√n：<b id="se" class="mono">—</b></span>
+  <span class="pill">直近標本の最小〜最大：<b id="minmax" class="mono">—</b> 円</span>
+</div>
+
+<div class="sampleBox">
+  <h2 style="margin-top:14px;">直近の標本（店・商品・価格）</h2>
+  <div class="tableWrap" role="region" aria-label="last sample table">
+    <table>
+      <thead>
+        <tr><th>店の名前</th><th>商品名</th><th style="width:140px;">価格（円）</th></tr>
+      </thead>
+      <tbody id="sampleBody">
+        <tr><td colspan="3" style="color:#666;">まだ生成されていないでござる。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+  </section>
+
+  <section class="card">
+    <h2>信頼区間プロット（直近20本）</h2>
+    <svg id="plotCI" viewBox="0 0 1100 420" aria-label="confidence interval plot"></svg>
+    <div class="row" style="margin-top:10px;align-items:center;">
+      <label><input type="checkbox" id="showMuChk"> 母平均を表示</label>
+      <span id="muLabel" class="pill mono" style="border-color:#d33;color:#d33;display:none;">母平均＝— 円</span>
+    </div>
+    <p class="note">横棒＝信頼区間。黒点＝標本平均。母平均（真の平均）はチェックで表示／非表示。</p>
+  </section>
+</div>
+
+<script src="pop.js"></script>
+<script>
+"use strict";
+
+function computeMean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function computeSD(arr){
+  // 高校でよく用いる「標本分散」：nで割る（不偏分散ではない）
+  const m = computeMean(arr);
+  const v = arr.reduce((a,x)=>a+(x-m)*(x-m),0) / arr.length;
+  return Math.sqrt(v);
+}
+
+
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
+function pickField(obj, keys){
+  for(const k of keys){
+    if(obj && Object.prototype.hasOwnProperty.call(obj, k)){
+      const v = obj[k];
+      if(v!==undefined && v!==null && String(v).trim().length>0) return String(v);
+    }
+  }
+  return "";
+}
+
+function getShopName(r){
+  // できるだけ「店」を表すキーを優先
+  const shopKeys = [
+    "shop","shopName","shopname","store","storeName","storename",
+    "shop_name","store_name","店舗","店舗名","店","店名","店の名前"
+  ];
+  return pickField(r, shopKeys);
+}
+
+function getItemName(r){
+  // できるだけ「商品（メニュー）」を表すキーを優先
+  const itemKeys = [
+    "product","productName","item","itemName","menu","menuName",
+    "ramen","ramenName","name","title",
+    "menu_name","ramen_name","商品","商品名","メニュー","品名","ラーメン名"
+  ];
+  return pickField(r, itemKeys);
+}
+
+function drawWithoutReplacement(n){
+  const N = POP.length;
+  if(n > N) throw new Error("nが母集団より大きい。");
+  const idx = Array.from({length:N}, (_,i)=>i);
+  for(let i=N-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  return idx.slice(0,n).map(k => POP[k]);
+}
+
+function tCritical(n, conf){
+  const key = String(conf);
+  const table = {
+    5:  {"0.90": 2.132, "0.95": 2.776, "0.99": 4.604}, // df=4
+    10: {"0.90": 1.833, "0.95": 2.262, "0.99": 3.250}, // df=9
+    30: {"0.90": 1.699, "0.95": 2.045, "0.99": 2.756}, // df=29
+    50: {"0.90": 1.677, "0.95": 2.010, "0.99": 2.680}  // df=49
+  };
+  if(table[n] && table[n][key]) return table[n][key];
+  if(conf >= 0.99) return 2.576;
+  if(conf >= 0.95) return 1.960;
+  return 1.645;
+}
+
+const nSelect    = document.getElementById("nSelect");
+const confSelect = document.getElementById("confSelect");
+const gen1Btn    = document.getElementById("gen1Btn");
+const gen20Btn   = document.getElementById("gen20Btn");
+const resetBtn   = document.getElementById("resetBtn");
+
+const kNowEl  = document.getElementById("kNow");
+const xbarEl  = document.getElementById("xbar");
+const wLastEl = document.getElementById("wLast");
+const coverEl = document.getElementById("cover");
+const wAvgEl  = document.getElementById("wAvg");
+const sEl     = document.getElementById("s");
+const seEl    = document.getElementById("se");
+const minmaxEl= document.getElementById("minmax");
+const sampleBody = document.getElementById("sampleBody");
+
+const svg = document.getElementById("plotCI");
+
+const showMuChk = document.getElementById("showMuChk");
+const muLabelEl = document.getElementById("muLabel");
+
+let cis = []; // {lo, hi, mean, covers}
+
+const CFG = { W:1100, H:420, pad:{l:40, r:20, t:20, b:35} };
+
+function clearSvg(){ svg.innerHTML = ""; }
+
+function xScale(x, xMin, xMax){
+  const w = CFG.W - CFG.pad.l - CFG.pad.r;
+  return CFG.pad.l + (x - xMin)/(xMax - xMin) * w;
+}
+
+function drawAxis(xMin, xMax){
+  const yAxis = CFG.H - CFG.pad.b;
+  const axis = document.createElementNS("http://www.w3.org/2000/svg","line");
+  axis.setAttribute("x1", CFG.pad.l);
+  axis.setAttribute("x2", CFG.W - CFG.pad.r);
+  axis.setAttribute("y1", yAxis);
+  axis.setAttribute("y2", yAxis);
+  axis.setAttribute("stroke", "#333");
+  svg.appendChild(axis);
+
+  const start = Math.ceil(xMin/100)*100;
+  const end   = Math.floor(xMax/100)*100;
+  for(let v=start; v<=end; v+=100){
+    const x = xScale(v, xMin, xMax);
+    const tick = document.createElementNS("http://www.w3.org/2000/svg","line");
+    tick.setAttribute("x1", x); tick.setAttribute("x2", x);
+    tick.setAttribute("y1", yAxis); tick.setAttribute("y2", yAxis+6);
+    tick.setAttribute("stroke", "#333");
+    svg.appendChild(tick);
+
+    const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x", x);
+    t.setAttribute("y", CFG.H-10);
+    t.setAttribute("text-anchor", "middle");
+    t.setAttribute("font-size", "12");
+    t.textContent = v;
+    svg.appendChild(t);
+  }
+}
+
+function ensurePOP(){
+  return (typeof POP !== "undefined" && Array.isArray(POP) && POP.length>0 && POP[0].price!==undefined);
+}
+
+function muTrue(){
+  const prices = POP.map(r=>r.price);
+  return computeMean(prices);
+}
+
+function makeOneCI(){
+  const n = parseInt(nSelect.value, 10);
+  const conf = parseFloat(confSelect.value);
+
+  const sample = drawWithoutReplacement(n);
+  const xs = sample.map(r=>r.price);
+  const xbar = computeMean(xs);
+  const s = computeSD(xs);
+  const t = tCritical(n, conf);
+  const half = t * s / Math.sqrt(n);
+  const lo = xbar - half;
+  const hi = xbar + half;
+
+  const mu = muTrue();
+  const covers = (lo <= mu && mu <= hi);
+  const se = s / Math.sqrt(n);
+  const mn = Math.min(...xs);
+  const mx = Math.max(...xs);
+  return {lo, hi, mean:xbar, covers, sample, s, se, mn, mx};
+}
+
+function updateKPIs(recent){
+  if(!ensurePOP()){
+    if(muLabelEl) muLabelEl.style.display = "none";
+xbarEl.textContent = "—";
+    wLastEl.textContent = "—";
+    coverEl.textContent = "—";
+    wAvgEl.textContent = "—";
+    sEl.textContent = "—";
+    seEl.textContent = "—";
+    minmaxEl.textContent = "—";
+    sampleBody.innerHTML = '<tr><td colspan="3" style="color:#666;">pop.js が読めぬため表示できぬ。</td></tr>';
+    return;
+  }
+if(recent.length===0){
+    xbarEl.textContent = "—";
+    wLastEl.textContent = "—";
+    coverEl.textContent = "—";
+    wAvgEl.textContent = "—";
+    sEl.textContent = "—";
+    seEl.textContent = "—";
+    minmaxEl.textContent = "—";
+    sampleBody.innerHTML = '<tr><td colspan="3" style="color:#666;">pop.js が読めぬため表示できぬ。</td></tr>';
+    return;
+  }
+  const last = recent[recent.length-1];
+  xbarEl.textContent = last.mean.toFixed(1);
+  wLastEl.textContent = (last.hi - last.lo).toFixed(1);
+
+  const cover = recent.reduce((a,c)=>a+(c.covers?1:0),0);
+  coverEl.textContent = String(cover);
+
+  const wAvg = recent.reduce((a,c)=>a+(c.hi-c.lo),0) / recent.length;
+  wAvgEl.textContent = wAvg.toFixed(1);
+
+  // 直近の標本の情報（名前・価格・ばらつき）
+  if(last.sample && Array.isArray(last.sample)){
+    sEl.textContent = Number(last.s).toFixed(2);
+    seEl.textContent = Number(last.se).toFixed(2);
+    minmaxEl.textContent = Number(last.mn).toFixed(0) + "〜" + Number(last.mx).toFixed(0);
+
+    
+const rows = last.sample.map((r,i)=>{
+  const shopRaw = getShopName(r);
+  const itemRaw = getItemName(r);
+
+  // 片方しか取れないときの保険
+  let shop = shopRaw;
+  let item = itemRaw;
+  if(!shop && item){ shop = "（店名不明）"; }
+  if(shop && !item){ item = "（商品名不明）"; }
+  if(!shop && !item){ shop = "（店名不明）"; item = "（商品名不明）"; }
+
+  const shopEsc = escapeHtml(shop);
+  const itemEsc = escapeHtml(item);
+
+  const price = (r.price!==undefined) ? r.price : (r.value!==undefined ? r.value : "");
+  const p = (price==="") ? "" : Number(price).toFixed(0);
+  return `<tr><td>${shopEsc}</td><td>${itemEsc}</td><td class="num">${p}</td></tr>`;
+}).join("");
+
+    sampleBody.innerHTML = rows || '<tr><td colspan="3" style="color:#666;">標本が空でござる。</td></tr>';
+  }else{
+    sEl.textContent = "—";
+    seEl.textContent = "—";
+    minmaxEl.textContent = "—";
+    sampleBody.innerHTML = '<tr><td colspan="3" style="color:#666;">標本情報が取得できぬ。</td></tr>';
+  }
+}
+
+function drawPlot(){
+  clearSvg();
+
+  if(!ensurePOP()){
+    const msg = document.createElementNS("http://www.w3.org/2000/svg","text");
+    msg.setAttribute("x", 20);
+    msg.setAttribute("y", 40);
+    msg.setAttribute("font-size", 16);
+    msg.textContent = "pop.js（POP配列）が読み込めていないようです。HTMLと同じ場所に pop.js を置いてください。";
+    svg.appendChild(msg);
+    updateKPIs([]);
+    kNowEl.textContent = "0";
+    return;
+  }
+
+  const prices = POP.map(r=>r.price);
+  const pMin = Math.min(...prices);
+  const pMax = Math.max(...prices);
+  const pad = 40;
+  const xMin = Math.floor((pMin - pad)/50)*50;
+  const xMax = Math.ceil((pMax + pad)/50)*50;
+
+  drawAxis(xMin, xMax);
+
+  const mu = muTrue();
+  if(showMuChk && showMuChk.checked){
+    const xMu = xScale(mu, xMin, xMax);
+    const vline = document.createElementNS("http://www.w3.org/2000/svg","line");
+    vline.setAttribute("x1", xMu); vline.setAttribute("x2", xMu);
+    vline.setAttribute("y1", CFG.pad.t);
+    vline.setAttribute("y2", CFG.H - CFG.pad.b);
+    vline.setAttribute("stroke", "#d33");
+    vline.setAttribute("stroke-width", "2");
+    svg.appendChild(vline);
+
+    if(muLabelEl){
+      muLabelEl.style.display = "inline-block";
+      muLabelEl.textContent = "母平均＝" + mu.toFixed(1) + " 円";
+    }
+  }else{
+    if(muLabelEl){
+      muLabelEl.style.display = "none";
+      muLabelEl.textContent = "母平均＝— 円";
+    }
+  }
+
+
+  const recent = cis.slice(-20);
+  kNowEl.textContent = String(recent.length);
+
+  const rowH = 17;
+  const y0 = CFG.pad.t + 18;
+
+  recent.forEach((ci, i) => {
+    const y = y0 + i*rowH;
+    const x1 = xScale(ci.lo, xMin, xMax);
+    const x2 = xScale(ci.hi, xMin, xMax);
+    const xm = xScale(ci.mean, xMin, xMax);
+
+    const col = ci.covers ? "#000" : "#d33";
+
+    const seg = document.createElementNS("http://www.w3.org/2000/svg","line");
+    seg.setAttribute("x1", x1); seg.setAttribute("x2", x2);
+    seg.setAttribute("y1", y);  seg.setAttribute("y2", y);
+    seg.setAttribute("stroke", col);
+    seg.setAttribute("stroke-width", "2");
+    svg.appendChild(seg);
+
+    const capL = document.createElementNS("http://www.w3.org/2000/svg","line");
+    capL.setAttribute("x1", x1); capL.setAttribute("x2", x1);
+    capL.setAttribute("y1", y-5); capL.setAttribute("y2", y+5);
+    capL.setAttribute("stroke", col);
+    capL.setAttribute("stroke-width", "2");
+    svg.appendChild(capL);
+
+    const capR = document.createElementNS("http://www.w3.org/2000/svg","line");
+    capR.setAttribute("x1", x2); capR.setAttribute("x2", x2);
+    capR.setAttribute("y1", y-5); capR.setAttribute("y2", y+5);
+    capR.setAttribute("stroke", col);
+    capR.setAttribute("stroke-width", "2");
+    svg.appendChild(capR);
+
+    const dot = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    dot.setAttribute("cx", xm);
+    dot.setAttribute("cy", y);
+    dot.setAttribute("r", "4");
+    dot.setAttribute("fill", col);
+    svg.appendChild(dot);
+  });
+
+  updateKPIs(recent);
+}
+
+function addOne(){
+  if(!ensurePOP()) return drawPlot();
+  cis.push(makeOneCI());
+  drawPlot();
+}
+
+function make20Fresh(){
+  if(!ensurePOP()) return drawPlot();
+  cis = [];
+  for(let i=0;i<20;i++) cis.push(makeOneCI());
+  drawPlot();
+}
+
+function resetAll(){
+  cis = [];
+  drawPlot();
+}
+
+gen1Btn.addEventListener("click", addOne);
+gen20Btn.addEventListener("click", make20Fresh);
+resetBtn.addEventListener("click", resetAll);
+
+nSelect.addEventListener("change", drawPlot);
+confSelect.addEventListener("change", drawPlot);
+
+if(showMuChk) showMuChk.addEventListener("change", drawPlot);
+
+window.addEventListener("load", () => {
+  try{ drawPlot(); }catch(e){ console.error(e); }
+});
+</script>
+</body>
+</html>

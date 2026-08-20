@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>くじ引き10回シミュレーション</title>
+  <style>
+    /* ===== テイスト寄せ（色・フォント・カード感） ===== */
+    body {
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .wrap { width: 100%; max-width: 760px; }
+
+    h1 {
+      font-size: 1.2rem;
+      margin: 0 0 10px;
+      color: #444;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 20px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn-group { display: flex; gap: 10px; width: 100%; }
+    button {
+      border: none;
+      padding: 12px 16px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      font-weight: bold;
+      flex: 1;
+    }
+    .btn-primary { background-color: #007bff; color: #fff; }
+    .btn-primary:hover { background-color: #0056b3; }
+    .btn-primary:disabled { background-color: #ccc; cursor: not-allowed; }
+
+    .btn-secondary { background-color: #6c757d; color: #fff; }
+    .btn-secondary:hover { background-color: #5a6268; }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border: 1px solid #aaa;
+      border-radius: 999px;
+      background: #fff;
+      font-size: 0.95rem;
+    }
+
+    .small { font-size: 0.9rem; color: #555; }
+
+    label { display: inline-flex; gap: 8px; align-items: center; }
+    input[type="number"] {
+      width: 90px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+
+    /* ===== 結果の並び（位置関係は以前のまま） ===== */
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .cell {
+      border-radius: 10px;
+      padding: 10px 8px;
+      text-align: center;
+      border: 1px solid #eee;
+      background: #fafafa;
+    }
+    .cell .nth { font-size: 0.85rem; color: #666; margin-bottom: 4px; }
+    .cell .label { font-size: 1.05rem; font-weight: bold; }
+
+    .hit { background-color: #e6f7ea; border-color: #8fd19e; color: #1f6b2e; }
+    .miss { background-color: #fff0f0; border-color: #e0a0a0; color: #8a1c1c; }
+
+    .note { font-size: 0.85rem; color: #666; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>くじ引き10回シミュレーション</h1>
+
+    <div class="row">
+      <div class="btn-group">
+        <button id="drawBtn" class="btn-primary">1回引く</button>
+        <button id="resetBtn" class="btn-secondary">リセット</button>
+      </div>
+      <span class="pill" id="statusPill">0 / 10 回</span>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <label class="small">
+        当たり確率
+        <input id="pNum" type="number" min="0" max="10" value="2">
+        /
+        <input id="pDen" type="number" min="1" max="1000" value="10">
+      </label>
+      <span class="note">※分母・分子を変えると他の確率にもできるでござる</span>
+    </div>
+
+    <div class="results" id="results"></div>
+
+    <!-- 集計（下に出力） -->
+    <div class="row" style="margin-top:12px;">
+      <span class="pill">当たり：<span id="hitCount">0</span></span>
+      <span class="pill">はずれ：<span id="missCount">0</span></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  "use strict";
+
+  const drawBtn = document.getElementById("drawBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const resultsEl = document.getElementById("results");
+  const statusPill = document.getElementById("statusPill");
+  const hitCountEl = document.getElementById("hitCount");
+  const missCountEl = document.getElementById("missCount");
+  const pNumEl = document.getElementById("pNum");
+  const pDenEl = document.getElementById("pDen");
+
+  const MAX_DRAWS = 10;
+
+  let draws = 0;
+  let hits = 0;
+
+  function clampProbability(num, den) {
+    if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return 0;
+    if (num < 0) num = 0;
+    if (num > den) num = den;
+    return num / den;
+  }
+
+  function updateUI() {
+    const misses = draws - hits;
+    statusPill.textContent = `${draws} / ${MAX_DRAWS} 回`;
+    hitCountEl.textContent = String(hits);
+    missCountEl.textContent = String(misses);
+    drawBtn.disabled = draws >= MAX_DRAWS;
+    if (drawBtn.disabled) drawBtn.textContent = "終了";
+    else drawBtn.textContent = "1回引く";
+  }
+
+  function addResultCell(nth, isHit) {
+    const div = document.createElement("div");
+    div.className = "cell " + (isHit ? "hit" : "miss");
+    div.innerHTML = `
+      <div class="nth">${nth}回目</div>
+      <div class="label">${isHit ? "当たり" : "はずれ"}</div>
+    `;
+    resultsEl.appendChild(div);
+  }
+
+  function drawOnce() {
+    if (draws >= MAX_DRAWS) return;
+
+    const num = Number(pNumEl.value);
+    const den = Number(pDenEl.value);
+    const p = clampProbability(num, den);
+
+    const isHit = (Math.random() < p);
+
+    draws += 1;
+    if (isHit) hits += 1;
+
+    addResultCell(draws, isHit);
+    updateUI();
+  }
+
+  function resetAll() {
+    draws = 0;
+    hits = 0;
+    resultsEl.innerHTML = "";
+    updateUI();
+  }
+
+  drawBtn.addEventListener("click", drawOnce);
+  resetBtn.addEventListener("click", resetAll);
+
+  updateUI();
+</script>
+</body>
+</html>

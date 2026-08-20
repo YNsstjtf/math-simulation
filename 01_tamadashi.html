@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>確率変数Xのシミュレーション</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 950px;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        /* 左側の操作パネル */
+        .control-panel {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        /* 右側のパネル（集計と履歴） */
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .summary-panel, .history-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .history-panel {
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+            color: #444;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        h1 { font-size: 1.4rem; }
+        h2, h3 { font-size: 1.1rem; }
+
+        .description {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 20px;
+            text-align: left;
+            line-height: 1.6;
+        }
+
+        /* 数学的なXのフォント */
+        .math-x {
+            font-family: "Times New Roman", Times, serif;
+            font-style: italic;
+            font-weight: bold;
+        }
+
+        /* ボタンのデザイン */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-weight: bold;
+            flex: 1; /* ボタンを均等な幅に */
+        }
+
+        /* メインボタン（玉を取り出す） */
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-primary:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* リセットボタン */
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        /* 結果表示エリア */
+        #result-area {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #fafafa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .balls-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .ball {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .ball.red {
+            background-color: #e74c3c;
+            border: 1px solid #c0392b;
+        }
+
+        .ball.white {
+            background-color: #ffffff;
+            border: 2px solid #bdc3c7;
+        }
+
+        .variable-x-display {
+            font-size: 1.4rem;
+            color: #2c3e50;
+        }
+
+        /* テーブル共通デザイン */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #555;
+        }
+
+        /* 集計表の強調 */
+        .summary-table td {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        /* 履歴の玉（小） */
+        .history-balls {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .history-ball {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-message {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #d9534f;
+            min-height: 1.5em;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="control-panel">
+        <h1>確率変数のシミュレーション</h1>
+        <div class="description">
+            <p><strong>設定：</strong><br>
+            袋の中身：白玉2個，赤玉3個（計5個）<br>
+            試行：同時に3個取り出す<br>
+            確率変数 <span class="math-x">X</span>：取り出した白玉の個数</p>
+        </div>
+
+        <div class="btn-group">
+            <button id="draw-btn" class="btn-primary" onclick="drawBalls()">玉を取り出す</button>
+            <button id="reset-btn" class="btn-secondary" onclick="resetSimulation()">リセット</button>
+        </div>
+        <div id="status-msg" class="status-message"></div>
+
+        <div id="result-area">
+            <p>今回の結果</p>
+            <div class="balls-container" id="current-balls">
+                </div>
+            <div class="variable-x-display">
+                <span class="math-x">X</span> = <span id="current-x-value" style="font-size: 1.8rem; font-weight: bold;">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        
+        <div class="summary-panel">
+            <h3><span class="math-x">X</span> の値の集計</h3>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>白玉の数</th>
+                        <th>０個</th>
+                        <th>１個</th>
+                        <th>２個</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>出た回数</td>
+                        <td id="freq-0">0回</td>
+                        <td id="freq-1">0回</td>
+                        <td id="freq-2">0回</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="history-panel">
+            <h3>履歴 (<span id="count-display">0</span>/<span id="max-display">10</span>)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>回</th>
+                        <th>取り出した玉</th>
+                        <th><span class="math-x">X</span> (白)</th>
+                    </tr>
+                </thead>
+                <tbody id="history-list">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 設定：ここを10に変更しました
+    const MAX_TRIALS = 10;
+    
+    let trialCount = 0;
+    let frequencies = {0: 0, 1: 0, 2: 0};
+    const BAG_CONTENTS = ['white', 'white', 'red', 'red', 'red'];
+
+    // ページ読み込み時に最大回数を表示に反映
+    window.onload = function() {
+        document.getElementById('max-display').textContent = MAX_TRIALS;
+    };
+
+    function drawBalls() {
+        if (trialCount >= MAX_TRIALS) {
+            return;
+        }
+
+        // 1. 抽選
+        let currentBag = [...BAG_CONTENTS];
+        for (let i = currentBag.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [currentBag[i], currentBag[j]] = [currentBag[j], currentBag[i]];
+        }
+        const drawnBalls = currentBag.slice(0, 3);
+
+        // 2. Xの計算
+        const xValue = drawnBalls.filter(color => color === 'white').length;
+
+        // 3. 画面表示（左側）
+        const resultArea = document.getElementById('result-area');
+        const ballsContainer = document.getElementById('current-balls');
+        const xValueSpan = document.getElementById('current-x-value');
+
+        resultArea.style.display = 'block';
+        ballsContainer.innerHTML = '';
+        
+        drawnBalls.forEach(color => {
+            const ballDiv = document.createElement('div');
+            ballDiv.className = `ball ${color}`;
+            ballsContainer.appendChild(ballDiv);
+        });
+        xValueSpan.textContent = xValue;
+
+        // 4. 集計（右上）
+        frequencies[xValue]++;
+        document.getElementById(`freq-${xValue}`).textContent = frequencies[xValue] + '回';
+
+        // 5. 履歴（右下）
+        trialCount++;
+        document.getElementById('count-display').textContent = trialCount;
+        
+        const historyList = document.getElementById('history-list');
+        const row = document.createElement('tr');
+
+        // 回数
+        const countCell = document.createElement('td');
+        countCell.textContent = trialCount;
+        row.appendChild(countCell);
+
+        // 玉表示
+        const ballsCell = document.createElement('td');
+        const miniBallsDiv = document.createElement('div');
+        miniBallsDiv.className = 'history-balls';
+        drawnBalls.forEach(color => {
+            const miniBall = document.createElement('div');
+            miniBall.className = `history-ball ${color}`;
+            if(color === 'white') {
+                miniBall.style.backgroundColor = '#fff';
+                miniBall.style.border = '1px solid #ccc';
+            } else {
+                miniBall.style.backgroundColor = '#e74c3c';
+            }
+            miniBallsDiv.appendChild(miniBall);
+        });
+        ballsCell.appendChild(miniBallsDiv);
+        row.appendChild(ballsCell);
+
+        // X表示
+        const xCell = document.createElement('td');
+        xCell.style.fontWeight = 'bold';
+        xCell.textContent = xValue;
+        row.appendChild(xCell);
+
+        historyList.appendChild(row);
+        
+        // 6. 終了判定
+        if (trialCount >= MAX_TRIALS) {
+            const btn = document.getElementById('draw-btn');
+            btn.disabled = true;
+            btn.textContent = "終了";
+            // 終了メッセージも変数を使って表示
+            document.getElementById('status-msg').textContent = MAX_TRIALS + "回終了しました。";
+        }
+    }
+
+    // リセット機能
+    function resetSimulation() {
+        trialCount = 0;
+        frequencies = {0: 0, 1: 0, 2: 0};
+
+        const drawBtn = document.getElementById('draw-btn');
+        drawBtn.disabled = false;
+        drawBtn.textContent = "玉を取り出す";
+        
+        document.getElementById('status-msg').textContent = "";
+        document.getElementById('result-area').style.display = 'none';
+        
+        document.getElementById('freq-0').textContent = "0回";
+        document.getElementById('freq-1').textContent = "0回";
+        document.getElementById('freq-2').textContent = "0回";
+        
+        document.getElementById('history-list').innerHTML = "";
+        document.getElementById('count-display').textContent = "0";
+    }
+</script>
+
+</body>
+</html>

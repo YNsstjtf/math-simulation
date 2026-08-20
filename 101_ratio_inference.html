@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>赤白玉シミュレーション</title>
+  <style>
+    body{
+      font-family: sans-serif;
+      background:#f7f7f7;
+      padding:20px;
+    }
+    h1{ font-size:1.4em; margin:0 0 12px; }
+
+    .box{
+      background:white;
+      border-radius:10px;
+      padding:14px;
+      margin-bottom:14px;
+      box-shadow:0 0 6px rgba(0,0,0,0.10);
+    }
+
+    /* 上段：左（操作）＋右（結果） */
+    .topGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    button{
+      padding:7px 12px;
+      font-size:1em;
+      margin:6px 8px 0 0;
+      cursor:pointer;
+    }
+
+    .kpi p{ margin:6px 0; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    /* 履歴（左右枠） */
+    .historyWrap{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .historyPanel{
+      border:2px solid #ddd;
+      border-radius:10px;
+      padding:10px;
+      background:#fafafa;
+      min-height:140px;
+    }
+    .panelTitle{
+      font-weight:bold;
+      margin-bottom:8px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .dots{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-content:flex-start;
+      min-height:96px;
+    }
+    .dot{
+      width:16px;
+      height:16px;
+      border-radius:50%;
+      display:inline-block;
+    }
+    .dot.red{
+      background:#e53935;
+      border:1px solid #b71c1c;
+    }
+    .dot.white{
+      background:#ffffff;
+      border:1px solid #888;
+    }
+    .badge{
+      font-size:0.9em;
+      padding:2px 8px;
+      border-radius:999px;
+      background:#eee;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>箱の中身推測ゲーム</h1>
+
+<div class="box topGrid">
+  <!-- 左：操作 -->
+  <div>
+    <p style="margin:0 0 8px; color:#444;">
+      箱の中には赤玉と白玉が合わせて10個入っている。箱から玉を1個取り出して、元に戻す（復元抽出）操作を繰り返す。<br>
+      箱の中の赤玉と白玉の内訳は？
+    </p>
+
+    <button onclick="drawOnce()">1回ひく</button>
+    <button onclick="drawMany(10)">10回ひく</button>
+    <button onclick="drawMany(20)">20回ひく</button>
+    <button onclick="drawMany(50)">50回ひく</button>
+    <button onclick="resetAll()">リセット</button>
+  </div>
+
+  <!-- 右：結果 -->
+  <div class="kpi">
+    <p>試行回数：<span id="trial" class="mono">0</span> 回</p>
+    <p>赤玉の回数：<span id="redCount" class="mono">0</span></p>
+    <p>白玉の回数：<span id="whiteCount" class="mono">0</span></p>
+    <p>標本比率（赤）：<span id="ratio" class="mono">–</span></p>
+  </div>
+</div>
+
+<div class="box">
+  <div class="historyWrap">
+    <div class="historyPanel">
+      <div class="panelTitle">
+        <span class="dot red"></span>
+        <span>赤の履歴（左）</span>
+        <span class="badge">赤：<span id="redCount2">0</span></span>
+      </div>
+      <div id="redDots" class="dots"></div>
+    </div>
+
+    <div class="historyPanel">
+      <div class="panelTitle">
+        <span class="dot white"></span>
+        <span>白の履歴（右）</span>
+        <span class="badge">白：<span id="whiteCount2">0</span></span>
+      </div>
+      <div id="whiteDots" class="dots"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ====== 袋の中身（生徒には非表示） ======
+  const BAG_RED = 6;
+  const BAG_WHITE = 4;
+  const BAG_TOTAL = BAG_RED + BAG_WHITE;
+
+  // ====== 状態 ======
+  let trial = 0;
+  let redCount = 0;
+  let whiteCount = 0;
+
+  function drawOnce(){
+    trial++;
+    const r = Math.floor(Math.random() * BAG_TOTAL);
+    if (r < BAG_RED){
+      redCount++;
+      appendDot("redDots", "red");
+    } else {
+      whiteCount++;
+      appendDot("whiteDots", "white");
+    }
+    updateKPI();
+  }
+
+  function drawMany(n){
+    for(let i=0;i<n;i++) drawOnce();
+  }
+
+  function appendDot(containerId, colorClass){
+    const dot = document.createElement("span");
+    dot.className = `dot ${colorClass}`;
+    document.getElementById(containerId).appendChild(dot);
+  }
+
+  function updateKPI(){
+    document.getElementById("trial").textContent = trial;
+    document.getElementById("redCount").textContent = redCount;
+    document.getElementById("whiteCount").textContent = whiteCount;
+    document.getElementById("redCount2").textContent = redCount;
+    document.getElementById("whiteCount2").textContent = whiteCount;
+
+    if(trial>0){
+      document.getElementById("ratio").textContent =
+        (redCount / trial).toFixed(3);
+    } else {
+      document.getElementById("ratio").textContent = "–";
+    }
+  }
+
+  function resetAll(){
+    trial = 0;
+    redCount = 0;
+    whiteCount = 0;
+    document.getElementById("redDots").innerHTML = "";
+    document.getElementById("whiteDots").innerHTML = "";
+    updateKPI();
+  }
+
+  updateKPI();
+</script>
+
+</body>
+</html>
