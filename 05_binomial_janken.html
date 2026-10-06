@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>じゃんけん10戦の勝ち数｜二項分布</title>
+<style>
+:root{
+  --bg:#f4f7f6;
+  --card:#ffffff;
+  --text:#2c3e50;
+  --muted:#6b7280;
+  --border:#dfe5e8;
+  --blue:#3498db;
+  --blue-dark:#2678ad;
+  --green:#2ecc71;
+  --green-dark:#239a55;
+  --orange:#e67e22;
+  --grid:#e9edef;
+  --shadow:0 4px 10px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  padding:20px;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;
+}
+.container{max-width:1050px;margin:0 auto}
+header{text-align:center;margin:8px 0 24px}
+h1{font-size:1.8rem;margin:0 0 8px}
+.subtitle{color:var(--muted);margin:0}
+.card{
+  background:var(--card);
+  border:1px solid #edf0f2;
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.tabs{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  border-bottom:1px solid var(--border);
+  background:#fafbfb;
+}
+.tab{
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:16px 10px;
+  font-size:1rem;
+  font-weight:700;
+  color:#65707a;
+  cursor:pointer;
+  border-bottom:3px solid transparent;
+}
+.tab:hover{background:#f2f5f6}
+.tab.active{
+  color:var(--blue-dark);
+  background:#fff;
+  border-bottom-color:var(--blue);
+}
+.content{padding:22px}
+.mode-title{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.mode-title h2{font-size:1.2rem;margin:0}
+.mode-note{font-size:.9rem;color:var(--muted);margin:0}
+.controls{
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#fbfcfc;
+  margin-bottom:18px;
+}
+.hidden{display:none!important}
+.input-grid{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:10px;
+}
+.input-box label{
+  display:block;
+  color:var(--muted);
+  font-size:.82rem;
+  margin-bottom:5px;
+  text-align:center;
+}
+.input-box input{
+  width:100%;
+  min-width:0;
+  border:1px solid #cfd7dc;
+  border-radius:8px;
+  padding:10px 6px;
+  text-align:center;
+  font-size:1.05rem;
+  background:#fff;
+}
+.input-box input:focus{
+  outline:2px solid rgba(52,152,219,.2);
+  border-color:var(--blue);
+}
+.button-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:14px;
+  align-items:center;
+}
+button.action{
+  border:0;
+  border-radius:8px;
+  padding:10px 16px;
+  min-height:42px;
+  font-weight:700;
+  cursor:pointer;
+  font-size:.95rem;
+}
+.primary{background:var(--blue);color:#fff}
+.primary:hover{background:var(--blue-dark)}
+.secondary{background:#eef2f4;color:#374151}
+.secondary:hover{background:#e2e8ec}
+.success{background:var(--green);color:#fff}
+.success:hover{background:var(--green-dark)}
+.sim-button{
+  background:#fff;
+  color:#374151;
+  border:1px solid #cfd7dc!important;
+}
+.sim-button:hover{background:#f3f6f7}
+.status{
+  margin-left:auto;
+  color:#4b5563;
+  font-size:.95rem;
+}
+.error{
+  color:#b42318;
+  min-height:1.4em;
+  font-size:.92rem;
+  margin-top:10px;
+}
+.chart-section{
+  border-top:1px solid #eef1f2;
+  padding-top:18px;
+}
+.chart-head{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  margin-bottom:8px;
+}
+.chart-title{font-weight:700}
+.chart-caption{color:var(--muted);font-size:.88rem}
+.canvas-wrap{
+  position:relative;
+  width:100%;
+  height:420px;
+}
+canvas{width:100%;height:100%;display:block}
+.legend{
+  display:flex;
+  gap:18px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-top:8px;
+  color:#4b5563;
+  font-size:.9rem;
+}
+.legend-item{display:flex;align-items:center;gap:7px}
+.legend-swatch{
+  width:18px;height:10px;border-radius:2px;background:var(--blue);
+}
+.legend-line{
+  width:20px;height:0;border-top:3px solid var(--green);
+}
+.formula-box{
+  text-align:center;
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:#fff;
+  padding:12px;
+  margin-bottom:12px;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:1.08rem;
+}
+.theory-options{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:14px;
+}
+.check-label{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#374151;
+  font-size:.95rem;
+}
+.check-label input{width:18px;height:18px}
+.small-note{
+  color:var(--muted);
+  font-size:.86rem;
+  line-height:1.5;
+  margin-top:10px;
+}
+.metric-strip{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:12px;
+}
+.metric{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:.9rem;
+}
+.metric strong{font-size:1rem}
+@media(max-width:760px){
+  body{padding:12px}
+  .content{padding:16px}
+  .input-grid{grid-template-columns:repeat(4,1fr)}
+  .canvas-wrap{height:350px}
+  .mode-title{align-items:flex-start;flex-direction:column}
+  .status{width:100%;margin-left:0}
+}
+@media(max-width:480px){
+  .tabs{grid-template-columns:1fr}
+  .tab{padding:11px}
+  .input-grid{grid-template-columns:repeat(2,1fr)}
+  .canvas-wrap{height:315px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>じゃんけん10戦の勝ち数</h1>
+    <p class="subtitle">実際の結果・シミュレーション・理論分布を切り替えて比べる</p>
+  </header>
+
+  <main class="card">
+    <nav class="tabs" aria-label="表示モード">
+      <button class="tab active" data-mode="actual" type="button">実際の結果</button>
+      <button class="tab" data-mode="simulation" type="button">シミュレーション</button>
+      <button class="tab" data-mode="theory" type="button">理論分布</button>
+    </nav>
+
+    <div class="content">
+      <!-- 実際の結果 -->
+      <section id="actualControls" class="controls">
+        <div class="mode-title">
+          <div>
+            <h2>これまでの結果</h2>
+            <p class="mode-note">各回の「10戦中の勝ち数」を最大20回まで入力できます。空欄があっても構いません。</p>
+          </div>
+        </div>
+
+        <div class="input-grid">
+          <div class="input-box"><label for="r1">第1回</label><input id="r1" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r2">第2回</label><input id="r2" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r3">第3回</label><input id="r3" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r4">第4回</label><input id="r4" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r5">第5回</label><input id="r5" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r6">第6回</label><input id="r6" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r7">第7回</label><input id="r7" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r8">第8回</label><input id="r8" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r9">第9回</label><input id="r9" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r10">第10回</label><input id="r10" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r11">第11回</label><input id="r11" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r12">第12回</label><input id="r12" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r13">第13回</label><input id="r13" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r14">第14回</label><input id="r14" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r15">第15回</label><input id="r15" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r16">第16回</label><input id="r16" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r17">第17回</label><input id="r17" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r18">第18回</label><input id="r18" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r19">第19回</label><input id="r19" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+          <div class="input-box"><label for="r20">第20回</label><input id="r20" class="actual-input" type="number" min="0" max="10" inputmode="numeric"></div>
+        </div>
+
+        <div class="button-row">
+          <button id="actualDraw" class="action primary" type="button">グラフにする</button>
+          <button id="actualClear" class="action secondary" type="button">クリア</button>
+        </div>
+        <div id="actualError" class="error" aria-live="polite"></div>
+      </section>
+
+      <!-- シミュレーション -->
+      <section id="simulationControls" class="controls hidden">
+        <div class="mode-title">
+          <div>
+            <h2>10戦を何セットも繰り返す</h2>
+            <p class="mode-note">1戦ごとの勝つ確率を 0.5 としてシミュレーションします。</p>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="action sim-button" data-add="1" type="button">＋1セット</button>
+          <button class="action sim-button" data-add="10" type="button">＋10セット</button>
+          <button class="action sim-button" data-add="100" type="button">＋100セット</button>
+          <button class="action sim-button" data-add="1000" type="button">＋1000セット</button>
+          <button id="simReset" class="action secondary" type="button">リセット</button>
+          <span id="simStatus" class="status">0セット</span>
+        </div>
+
+        <div class="metric-strip">
+          <div class="metric">直近：<strong id="lastSim">―</strong></div>
+          <div class="metric">平均勝ち数：<strong id="simMean">―</strong></div>
+        </div>
+      </section>
+
+      <!-- 理論分布 -->
+      <section id="theoryControls" class="controls hidden">
+        <div class="mode-title">
+          <div>
+            <h2>理論的な確率分布</h2>
+            <p class="mode-note">10戦中の勝ち数を X とし，各戦で勝つ確率を 0.5 とします。</p>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          P(X = k) = ₁₀Cₖ (1/2)ᵏ (1/2)¹⁰⁻ᵏ　　(k = 0,1,…,10)
+        </div>
+
+        <div class="theory-options">
+          <label class="check-label">
+            <input id="compareSim" type="checkbox">
+            シミュレーションの相対度数を重ねる
+          </label>
+        </div>
+        <p id="compareNote" class="small-note">
+          シミュレーションを行うと，比較表示できます。
+        </p>
+      </section>
+
+      <!-- 共通グラフ -->
+      <section class="chart-section">
+        <div class="chart-head">
+          <div id="chartTitle" class="chart-title">これまでの結果</div>
+          <div id="chartCaption" class="chart-caption">縦軸：回数</div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="chart" aria-label="勝ち数の棒グラフ"></canvas>
+        </div>
+
+        <div id="legend" class="legend hidden">
+          <div class="legend-item"><span class="legend-swatch"></span>シミュレーションの相対度数</div>
+          <div class="legend-item"><span class="legend-line"></span>理論確率</div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const N = 10;
+  const P = 0.5;
+
+  const state = {
+    mode: "actual",
+    actualValues: [],
+    actualFreq: Array(11).fill(0),
+    simFreq: Array(11).fill(0),
+    simTotal: 0,
+    simSumWins: 0,
+    lastSim: null
+  };
+
+  const tabs = [...document.querySelectorAll(".tab")];
+  const actualControls = document.getElementById("actualControls");
+  const simulationControls = document.getElementById("simulationControls");
+  const theoryControls = document.getElementById("theoryControls");
+  const inputs = [...document.querySelectorAll(".actual-input")];
+  const chart = document.getElementById("chart");
+  const chartTitle = document.getElementById("chartTitle");
+  const chartCaption = document.getElementById("chartCaption");
+  const legend = document.getElementById("legend");
+  const compareSim = document.getElementById("compareSim");
+  const compareNote = document.getElementById("compareNote");
+
+  function combination(n, r) {
+    if (r < 0 || r > n) return 0;
+    r = Math.min(r, n - r);
+    let result = 1;
+    for (let i = 1; i <= r; i++) {
+      result = result * (n - r + i) / i;
+    }
+    return result;
+  }
+
+  function theoryProbabilities() {
+    return Array.from({length: N + 1}, (_, k) =>
+      combination(N, k) * Math.pow(P, k) * Math.pow(1 - P, N - k)
+    );
+  }
+
+  function setupCanvas() {
+    const rect = chart.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    chart.width = Math.max(1, Math.round(rect.width * dpr));
+    chart.height = Math.max(1, Math.round(rect.height * dpr));
+    const ctx = chart.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return {ctx, width: rect.width, height: rect.height};
+  }
+
+  function niceMax(value, min = 1) {
+    if (value <= min) return min;
+    if (value <= 5) return Math.ceil(value);
+    if (value <= 10) return Math.ceil(value / 2) * 2;
+    return Math.ceil(value / 5) * 5;
+  }
+
+  function makeTicks(max, count = 5) {
+    const ticks = [];
+    for (let i = 0; i <= count; i++) ticks.push(max * i / count);
+    return ticks;
+  }
+
+  function drawChart({bars, line=null, yMax, yLabel, barLabelFormat, tickFormat}) {
+    const {ctx, width, height} = setupCanvas();
+    ctx.clearRect(0, 0, width, height);
+
+    const margin = {left: 58, right: 22, top: 26, bottom: 55};
+    const graphW = width - margin.left - margin.right;
+    const graphH = height - margin.top - margin.bottom;
+    const step = graphW / 11;
+    const barW = Math.min(42, step * 0.64);
+
+    // grid + y ticks
+    const ticks = makeTicks(yMax, 5);
+    ctx.font = "13px sans-serif";
+    ctx.textBaseline = "middle";
+
+    ticks.forEach(t => {
+      const y = margin.top + graphH - (t / yMax) * graphH;
+      ctx.strokeStyle = "#e9edef";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(margin.left, y);
+      ctx.lineTo(margin.left + graphW, y);
+      ctx.stroke();
+
+      ctx.fillStyle = "#5f6b73";
+      ctx.textAlign = "right";
+      ctx.fillText(tickFormat(t), margin.left - 8, y);
+    });
+
+    // axes
+    ctx.strokeStyle = "#5f6b73";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top);
+    ctx.lineTo(margin.left, margin.top + graphH);
+    ctx.lineTo(margin.left + graphW, margin.top + graphH);
+    ctx.stroke();
+
+    // bars
+    bars.forEach((v, k) => {
+      const h = (v / yMax) * graphH;
+      const x = margin.left + k * step + (step - barW) / 2;
+      const y = margin.top + graphH - h;
+
+      ctx.fillStyle = "#3498db";
+      ctx.fillRect(x, y, barW, h);
+
+      if (v > 0) {
+        ctx.fillStyle = "#34495e";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(barLabelFormat(v), x + barW / 2, Math.max(margin.top + 12, y - 4));
+      }
+
+      ctx.fillStyle = "#44515a";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.font = "13px sans-serif";
+      ctx.fillText(String(k), x + barW / 2, margin.top + graphH + 8);
+    });
+
+    // theory line/dots
+    if (line) {
+      ctx.strokeStyle = "#2ecc71";
+      ctx.fillStyle = "#2ecc71";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      line.forEach((v, k) => {
+        const x = margin.left + k * step + step / 2;
+        const y = margin.top + graphH - (v / yMax) * graphH;
+        if (k === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      line.forEach((v, k) => {
+        const x = margin.left + k * step + step / 2;
+        const y = margin.top + graphH - (v / yMax) * graphH;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // labels
+    ctx.fillStyle = "#334155";
+    ctx.font = "14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("10戦中の勝ち数 X", margin.left + graphW / 2, height - 12);
+
+    ctx.save();
+    ctx.translate(17, margin.top + graphH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center";
+    ctx.fillText(yLabel, 0, 0);
+    ctx.restore();
+  }
+
+  function emptyActualChart() {
+    chartTitle.textContent = state.actualValues.length > 0
+      ? `これまでの${state.actualValues.length}セットの結果`
+      : "これまでの結果";
+    chartCaption.textContent = state.actualValues.length > 0
+      ? `縦軸：回数　／　入力 ${state.actualValues.length} セット`
+      : "縦軸：回数";
+    legend.classList.add("hidden");
+    drawChart({
+      bars: Array(11).fill(0),
+      yMax: 3,
+      yLabel: "回数",
+      barLabelFormat: v => String(v),
+      tickFormat: v => Number.isInteger(v) ? String(v) : ""
+    });
+  }
+
+  function renderActual() {
+    chartTitle.textContent = state.actualValues.length > 0
+      ? `これまでの${state.actualValues.length}セットの結果`
+      : "これまでの結果";
+    chartCaption.textContent = state.actualValues.length > 0
+      ? `縦軸：回数　／　入力 ${state.actualValues.length} セット`
+      : "縦軸：回数";
+    legend.classList.add("hidden");
+
+    if (state.actualValues.length === 0) {
+      emptyActualChart();
+      return;
+    }
+
+    const maxCount = Math.max(...state.actualFreq, 1);
+    const yMax = niceMax(maxCount, 3);
+
+    drawChart({
+      bars: state.actualFreq,
+      yMax,
+      yLabel: "回数",
+      barLabelFormat: v => String(v),
+      tickFormat: v => Number.isInteger(v) ? String(v) : v.toFixed(1)
+    });
+  }
+
+  function renderSimulation() {
+    chartTitle.textContent = "シミュレーションによる勝ち数の出方";
+    chartCaption.textContent = `縦軸：回数　／　合計 ${state.simTotal} セット`;
+    legend.classList.add("hidden");
+
+    const maxCount = Math.max(...state.simFreq, 1);
+    const yMax = niceMax(maxCount, 5);
+
+    drawChart({
+      bars: state.simFreq,
+      yMax,
+      yLabel: "回数",
+      barLabelFormat: v => v >= 1 ? String(v) : "",
+      tickFormat: v => Number.isInteger(v) ? String(v) : v.toFixed(1)
+    });
+  }
+
+  function renderTheory() {
+    const probs = theoryProbabilities();
+    const canCompare = state.simTotal > 0;
+    compareSim.disabled = !canCompare;
+    compareNote.textContent = canCompare
+      ? `${state.simTotal}セット分のシミュレーション結果と比較できます。`
+      : "シミュレーションを行うと，比較表示できます。";
+
+    const compare = compareSim.checked && canCompare;
+    chartTitle.textContent = compare
+      ? "理論確率とシミュレーションの比較"
+      : "二項分布 B(10, 0.5)";
+    chartCaption.textContent = compare
+      ? "縦軸：確率・相対度数"
+      : "縦軸：確率";
+
+    const bars = compare
+      ? state.simFreq.map(v => v / state.simTotal)
+      : probs;
+
+    legend.classList.toggle("hidden", !compare);
+
+    drawChart({
+      bars,
+      line: compare ? probs : null,
+      yMax: 0.30,
+      yLabel: compare ? "確率・相対度数" : "確率",
+      barLabelFormat: v => (v * 100).toFixed(1) + "%",
+      tickFormat: v => Math.round(v * 100) + "%"
+    });
+  }
+
+  function render() {
+    if (state.mode === "actual") renderActual();
+    if (state.mode === "simulation") renderSimulation();
+    if (state.mode === "theory") renderTheory();
+  }
+
+  function setMode(mode) {
+    state.mode = mode;
+
+    tabs.forEach(tab => {
+      const active = tab.dataset.mode === mode;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+
+    actualControls.classList.toggle("hidden", mode !== "actual");
+    simulationControls.classList.toggle("hidden", mode !== "simulation");
+    theoryControls.classList.toggle("hidden", mode !== "theory");
+
+    render();
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => setMode(tab.dataset.mode));
+  });
+
+  document.getElementById("actualDraw").addEventListener("click", () => {
+    const error = document.getElementById("actualError");
+    error.textContent = "";
+
+    const values = [];
+    for (const input of inputs) {
+      const raw = input.value.trim();
+
+      // 空欄は未入力として無視する
+      if (raw === "") continue;
+
+      const v = Number(raw);
+      if (!Number.isInteger(v) || v < 0 || v > 10) {
+        error.textContent = "入力する場合は，勝ち数を0～10の整数にしてください。";
+        return;
+      }
+      values.push(v);
+    }
+
+    if (values.length === 0) {
+      error.textContent = "少なくとも1回分の結果を入力してください。";
+      return;
+    }
+
+    state.actualValues = values;
+    state.actualFreq = Array(11).fill(0);
+    values.forEach(v => state.actualFreq[v]++);
+    renderActual();
+  });
+
+  document.getElementById("actualClear").addEventListener("click", () => {
+    inputs.forEach(i => i.value = "");
+    document.getElementById("actualError").textContent = "";
+    state.actualValues = [];
+    state.actualFreq = Array(11).fill(0);
+    renderActual();
+  });
+
+  function runOneSet() {
+    let wins = 0;
+    for (let i = 0; i < N; i++) {
+      if (Math.random() < P) wins++;
+    }
+    state.simFreq[wins]++;
+    state.simTotal++;
+    state.simSumWins += wins;
+    state.lastSim = wins;
+  }
+
+  document.querySelectorAll("[data-add]").forEach(button => {
+    button.addEventListener("click", () => {
+      const count = Number(button.dataset.add);
+      for (let i = 0; i < count; i++) runOneSet();
+
+      document.getElementById("simStatus").textContent = `${state.simTotal}セット`;
+      document.getElementById("lastSim").textContent = `${state.lastSim}勝`;
+      document.getElementById("simMean").textContent =
+        (state.simSumWins / state.simTotal).toFixed(2) + "勝";
+
+      renderSimulation();
+    });
+  });
+
+  document.getElementById("simReset").addEventListener("click", () => {
+    state.simFreq = Array(11).fill(0);
+    state.simTotal = 0;
+    state.simSumWins = 0;
+    state.lastSim = null;
+
+    document.getElementById("simStatus").textContent = "0セット";
+    document.getElementById("lastSim").textContent = "―";
+    document.getElementById("simMean").textContent = "―";
+    compareSim.checked = false;
+    renderSimulation();
+  });
+
+  compareSim.addEventListener("change", renderTheory);
+
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 100);
+  });
+
+  setMode("actual");
+})();
+</script>
+</body>
+</html>
