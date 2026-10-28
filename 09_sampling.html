@@ -308,7 +308,7 @@
 "use strict";
 
 /** ====== 状態 ====== */
-let means = [];        // 標本平均の履歴（最大10）
+let means = [];        // 標本平均の履歴（最大200）
 let lastSample = [];   // 直近の標本
 
 /** ====== DOM ====== */
@@ -514,6 +514,7 @@ function resetAll(){
   dotPlot(svgMeans, [], CFG_MEANS);
 }
 
+nSelect.addEventListener("change", resetAll); // 標本サイズ変更時に以前の記録を消去
 drawBtn.addEventListener("click", drawOnce);
 draw10Btn.addEventListener("click", drawTen);
 resetBtn.addEventListener("click", resetAll);
